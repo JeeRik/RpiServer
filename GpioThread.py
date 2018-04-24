@@ -36,8 +36,8 @@ class GpioThread (threading.Thread):
 
     def run(self):
 
-        # self.moduleFactory = DefaultComponents.ColorModule
-        self.moduleFactory = Swarovski.Swarovski
+        self.moduleFactory = DefaultComponents.ColorModule
+        # self.moduleFactory = Swarovski.Swarovski
         self.filterFactory = DefaultComponents.NoneFilter
         self.transitionFactory = DefaultComponents.NoneTransition
 
