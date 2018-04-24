@@ -26,6 +26,7 @@ def connectionBody(c, caddr, thread):
         if not reply.endswith("\n"):
             reply += "\n"
         c.send(reply)
+        print("Command \"{}\", Reply \"{}\"".format(line, reply.strip()))
 
 def main():
     server = None;
@@ -49,7 +50,9 @@ def main():
             c, caddr = server.accept()
             print("Connection from {}".format(caddr))
 
+            t.isConnected = True
             connectionBody(c, caddr, t)
+            t.isConnected = False
 
             print("EOF")
             c.close()

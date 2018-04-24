@@ -95,33 +95,72 @@ class DimFilter:
         return map(lambda x: map(lambda y: ((y * dim) >> 8), x), block)
 
 class TheatreFilter:
+    speed = 1
+    offCount = 4
+    sampleLen = 10
+
+    @staticmethod
+    def configure(args):
+        speed = 1
+        if len(args) > 0:
+            try:
+                speed = int(args[0])
+            except ValueError:
+                speed = 1
+        if speed == 0:
+            speed = 1
+
+        absSpeed = speed if speed >= 0 else -speed
+
+        onPixels = 4 * absSpeed
+        offPixels = 6 * absSpeed
+        if (len(args) > 2):
+            try:
+                onPixels = int(args[1])
+                offPixels = int(args[2])
+            except ValueError:
+                onPixels = 4 * absSpeed
+                offPixels = 6 * absSpeed
+
+        TheatreFilter.speed = speed
+        TheatreFilter.offCount = offPixels
+        TheatreFilter.sampleLen = onPixels + offPixels
+
     def __init__(self, module, sections):
         self.module = module
         self.counter = 0
 
         self.sections = []
         for section in sections:
-            start = section[0]
-            end = section[1]
-            if end <= start:
-                end += Const.LED_COUNT
-            speed = 1 if len(section) <= 2 else section[2]
-            offCount = 5 if len(section) <= 3 else section[3]
-            sampleLen = 10 if len(section) <= 4 else section[4]
-            offset = 0 if len(section) <= 5 else section[5]
+            dir = -1 if section[2] < 0 else 1
+            end = section[1] if (section[1] - section[0]) * dir > 0 else section[1] + Const.LED_COUNT * dir # end of block, adjusted so that end is in the right direction from start
+            if end == section[0]: end -= Const.LED_COUNT
+            length = (end - section[0]) * dir
 
-            self.sections.append([start, end, speed, offCount, sampleLen, offset])
+            self.sections.append([
+                section[0], # start of block
+                end,
+                section[2] if section[2] >= 0 else -section[2], # speed
+                section[3], # offcount
+                section[4], # sample length
+                section[5] if len(section) > 5 else 0, # offset
+                dir,
+                length]) #direction at [6]
 
         print("New TheatreFilter: {}".format(self.sections))
 
     def next(self):
         block = self.module.next()
+        counter = self.counter
 
         for section in self.sections:
-            anchor = (self.counter * section[2] + section[5] + section[0]) % section[4]
-            for i in range(section[0], section[1], 1):
-                if (i+anchor) % section[4] < section[3]:
-                    block[i % Const.LED_COUNT] = [0,0,0]
+            # anchor = (self.counter * section[2] + section[5] + section[0]) % section[4]
+            # for i in range(section[0], section[1], 1):
+            #     if (i+anchor) % section[4] < section[3]:
+            #         block[i % Const.LED_COUNT] = [0,0,0]
+            for i in range(section[7]+1):
+                if ((i + counter*section[2]) % section[4]) < section[3]:
+                    block[(i*section[6] + section[0]) % Const.LED_COUNT] = [0,0,0]
 
         self.counter += 1
         return block
@@ -129,27 +168,18 @@ class TheatreFilter:
 class ChaseFilter:
     name = "Chase filter"
     key = "chase"
-    help = "No options. Sorry"
-    speed = 1
+    help = ">>> filter chase <speed> <onPixels=speed*6> <offPixels=speed*4>"
 
     @staticmethod
     def configure(args):
-        if len(args) > 0:
-            speed = 1
-            try:
-                speed = int(args[0])
-            except ValueError:
-                speed = 1
-            ChaseFilter.speed = speed
+        TheatreFilter.configure(args)
 
     @staticmethod
     def getinstance(module):
-        absSpeed = ChaseFilter.speed
-        if absSpeed < 0:
-            absSpeed = -absSpeed
-        return TheatreFilter(module, [[0,Const.LED_COUNT,ChaseFilter.speed, 6*absSpeed, 10*absSpeed]])
+        return TheatreFilter(module, [[0,Const.LED_COUNT,TheatreFilter.speed, TheatreFilter.offCount, TheatreFilter.sampleLen]])
 
 class ArrowFilter:
+
     name = "Arrow filter"
     key = "arrow"
     help = "usage: >>filter arrow [speed=1]<<"
@@ -158,13 +188,7 @@ class ArrowFilter:
 
     @staticmethod
     def configure(args):
-        if len(args) > 0:
-            speed = 1
-            try:
-                speed = int(args[0])
-            except ValueError:
-                speed = 1
-            ArrowFilter.speed = speed
+        TheatreFilter.configure(args)
 
     @staticmethod
     def getinstance(module):
@@ -174,8 +198,8 @@ class ArrowFilter:
         if absSpeed < 0:
             absSpeed = -absSpeed
         sections = [
-                [door, window, ArrowFilter.speed, 6*absSpeed, 10*absSpeed],
-                [window, door, -ArrowFilter.speed, 6*absSpeed, 10*absSpeed]
+                [door, window, TheatreFilter.speed, TheatreFilter.offCount, TheatreFilter.sampleLen],
+                [door, window, -TheatreFilter.speed, TheatreFilter.offCount, TheatreFilter.sampleLen]
         ]
         return TheatreFilter(module, sections)
 
@@ -188,13 +212,7 @@ class GazeFilter:
 
     @staticmethod
     def configure(args):
-        if len(args) > 0:
-            speed = 1
-            try:
-                speed = int(args[0])
-            except ValueError:
-                speed = 1
-            GazeFilter.speed = speed
+        TheatreFilter.configure(args)
 
     @staticmethod
     def getinstance(module):
@@ -209,18 +227,17 @@ class GazeFilter:
 
         sections = [
             [Const.LED_CORNERS[0], right],
-            [right, Const.LED_CORNERS[1]],
+            [Const.LED_CORNERS[1], right],
             [Const.LED_CORNERS[1], window],
-            [window, Const.LED_CORNERS[2]],
+            [Const.LED_CORNERS[2], window],
             [Const.LED_CORNERS[2], left],
-            [left, Const.LED_CORNERS[3]],
+            [Const.LED_CORNERS[3], left],
             [Const.LED_CORNERS[3], door],
-            [door, Const.LED_COUNT],
+            [Const.LED_COUNT, door],
         ]
 
-        sections = map(lambda x, y: [x[0], x[1], GazeFilter.speed * ((-1)**y), 6 * absSpeed, 10 * absSpeed], sections, range(len(sections)))
+        sections = map(lambda x, y: [x[0], x[1], TheatreFilter.speed * (-1) * ((-1)**y), TheatreFilter.offCount, TheatreFilter.sampleLen], sections, range(len(sections)))
         return TheatreFilter(module, sections)
-
 
 class SonarFilter:
     name = "Sonar filter"

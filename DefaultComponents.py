@@ -17,7 +17,8 @@ class ColorModule:
     @staticmethod
     def configure(args):
         if len(args) == 0:
-            ColorModule.color = [0x20,0,0x80]
+            ColorModule.color = [0,0,0]
+            print("Default color set to 0x0")
             return
         try:
             color = Colors.decode(args[0])

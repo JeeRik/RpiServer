@@ -1,11 +1,17 @@
+import random
+
 from Defs import *
 import Const
 
 class RainbowModule:
     name = "Running rainbow module"
     key = "rainbow"
-    help = "Usage: >> module rainbow [speed=1] <<. Speed must be an integer. May be negative"
+    help = "Usage: >> module rainbow [speed=1] [single/triple]<<. \n" \
+           "  Speed must be an integer - may be negative \n" \
+           "  Mode is a string, default=triple"
     speed = 1
+    cycles = 3
+
     @staticmethod
     def configure(args):
         if len(args) > 0:
@@ -14,14 +20,26 @@ class RainbowModule:
                 RainbowModule.speed = speed
             except ValueError:
                 RainbowModule.speed = 1
+        if len(args) > 1:
+            if (args[1] == "single"):
+                RainbowModule.cycles = 1
+            else:
+                RainbowModule.cycles = 3
+
+
 
     @staticmethod
     def getinstance():
-        return RainbowModule(RainbowModule.speed)
+        return RainbowModule(RainbowModule.speed, RainbowModule.cycles)
 
-    def __init__(self, speed):
+    def __init__(self, speed, cycles):
         self.counter = 0
         self.speed = speed
+        self.cycles = cycles
+
+        if speed == 0:
+            self.counter = random.randint(0, Const.LED_COUNT-1)
+            self.hidden = 0
 
     def next(self):
         return self.rainbow()
@@ -43,13 +61,27 @@ class RainbowModule:
     def rainbow(self):
         """Draw rainbow that fades across all pixels at once."""
 
-        block = []
-        for i in range(Const.LED_COUNT):
-            block.append(RainbowModule.wheel((i + self.counter)))
+        # hidden feature of speed=0: makes one cycle per ~hour
+        if self.speed == 0:
+            self.hidden += 1
+            if self.hidden > 336:
+                self.counter += 1
+                self.hidden = 0
 
-        self.counter += self.speed
-        while self.counter < 0:
-            self.counter += 306
+        block = []
+        if self.cycles == 3:
+            for i in range(Const.LED_COUNT):
+                block.append(RainbowModule.wheel((i + self.counter)))
+            self.counter += self.speed
+            while self.counter < 0:
+                self.counter += 306
+        else:
+            for i in range(Const.LED_COUNT):
+                block.append( RainbowModule.wheel((i + self.counter) / 3));
+            self.counter += self.speed
+            while self.counter < 0:
+                self.counter += 918
+
 
         return block
 
@@ -64,7 +96,7 @@ class VertigoModule:
     def configure(args):
         if len(args) > 0:
             try:
-                speed = int(args[0])
+                speed = float(args[0])
                 VertigoModule.speed = speed
             except ValueError:
                 VertigoModule.speed = 1
@@ -74,8 +106,9 @@ class VertigoModule:
         return VertigoModule(VertigoModule.speed)
 
     def __init__(self, speed):
-        self.counter = 0
+        self.counter = random.randint(1, VertigoModule.MAX_VAL * 6)
         self.speed = speed
+        print("Vertigo: speed={}".format(self.speed))
 
     @staticmethod
     def wheel(pos):
@@ -101,11 +134,10 @@ class VertigoModule:
         return [MAX_VAL-pos, 0 , MAX_VAL]
 
     def next(self):
-        color = VertigoModule.wheel(self.counter)
+        color = VertigoModule.wheel(int(math.floor(self.counter)))
         block = map(lambda x: color[:], range(Const.LED_COUNT))
         self.counter = (self.counter + self.speed) % (VertigoModule.MAX_VAL * 6)
         return block
-
 
 MODULES["rainbow"] = RainbowModule
 MODULES["vertigo"] = VertigoModule

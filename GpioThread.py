@@ -12,6 +12,7 @@ import DefaultComponents
 import Filters
 import Modules
 import Transitions
+import Swarovski
 
 class GpioThread (threading.Thread):
 
@@ -28,11 +29,15 @@ class GpioThread (threading.Thread):
         self.reply = None
         self.lock = threading.Condition()
 
+        self.isConnected = False
+        self.isConnectedTick = 0
+
         print("GpioThread initialized")
 
     def run(self):
 
-        self.moduleFactory = DefaultComponents.ColorModule
+        # self.moduleFactory = DefaultComponents.ColorModule
+        self.moduleFactory = Swarovski.Swarovski
         self.filterFactory = DefaultComponents.NoneFilter
         self.transitionFactory = DefaultComponents.NoneTransition
 
@@ -56,6 +61,13 @@ class GpioThread (threading.Thread):
             self.lock.release()
 
             block = self.module.next()
+
+            self.isConnectedTick += 1
+            if self.isConnectedTick >= 100:
+                if not self.isConnected:
+                    block[0] = [255,0,0]
+                    block[1] = [0, 0, 0]
+                self.isConnectedTick = 0
             self.project(block)
 
         print("GpioThread stopping")

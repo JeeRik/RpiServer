@@ -1,6 +1,8 @@
 import math
 import numbers
 
+import Const
+
 MODULES = dict()
 TRANSITIONS = dict()
 FILTERS = dict()
@@ -13,6 +15,9 @@ class Colors:
     colormap["red"] = 0xb00000
     colormap["green"] = 0xb000
     colormap["white"] = 0x808080
+    colormap["cyan"] = 0xb0b0
+    colormap["magenta"] = 0xb000b0
+    colormap["yellow"] = 0xb0b000
 
     @staticmethod
     def decode(color):
@@ -29,3 +34,33 @@ class Colors:
     def dim(color, rate):
         rate = 256 - rate
         return map(lambda y: ((y * rate) >> 8), color)
+    @staticmethod
+    def addColors(c1, c2):
+        return [max(c1[0], c2[0]), max(c1[1], c2[1]), max(c1[2], c2[2])]
+
+    @staticmethod
+    def putGradient(block, pos1, pos2, c1, c2):
+        if pos2 <= pos1:
+            pos2 += Const.LED_COUNT
+
+        len = pos2 - pos1
+
+        r = c1[0] * len
+        g = c1[1] * len
+        b = c1[2] * len
+
+        rdiff = c2[0] - c1[0]
+        gdiff = c2[1] - c1[1]
+        bdiff = c2[2] - c1[2]
+
+        for i in range(len+1): # paint includes the pos2 pixel
+            block[(pos1 + i) % Const.LED_COUNT] = [ (r + rdiff * i) / len , (g + gdiff * i) / len,(b + bdiff * i) / len]
+
+def adjustToLedRange(pos):
+    if pos < 0:
+        while pos < 0:
+            pos += Const.LED_COUNT
+        return pos
+    while pos >= Const.LED_COUNT:
+        pos -= Const.LED_COUNT
+    return pos
