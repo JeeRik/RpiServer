@@ -1,5 +1,6 @@
 import threading
 import time
+import logging
 
 import sys
 
@@ -13,6 +14,10 @@ import Filters
 import Modules
 import Transitions
 import Swarovski
+import Firepworks
+import Cannon
+
+logging.basicConfig(level=logging.DEBUG)
 
 class GpioThread (threading.Thread):
 
@@ -32,12 +37,13 @@ class GpioThread (threading.Thread):
         self.isConnected = False
         self.isConnectedTick = 0
 
-        print("GpioThread initialized")
+        self.commandId = 0
+        logging.info("GpioThread initialized")
 
     def run(self):
 
-        self.moduleFactory = DefaultComponents.ColorModule
-        # self.moduleFactory = Swarovski.Swarovski
+        # self.moduleFactory = DefaultComponents.ColorModule
+        self.moduleFactory = Cannon.Cannon
         self.filterFactory = DefaultComponents.NoneFilter
         self.transitionFactory = DefaultComponents.NoneTransition
 
@@ -47,6 +53,10 @@ class GpioThread (threading.Thread):
 
         self.module = self.filterFactory.getinstance(self.moduleFactory.getinstance())
 
+        logging.debug("GpioThread started (Thread name={})".format(threading.Thread.getName(self)))
+
+        messageNumber = 0
+
         while True:
             self.lock.acquire()
             if self.exit:
@@ -54,9 +64,12 @@ class GpioThread (threading.Thread):
                 break
 
             if self.command is not None:
+                messageNumber += 1
+                logging.debug("Received message #{}: {}".format(messageNumber, self.command))
                 self.reply = self.processCommandT(self.command)
                 self.command = None
-                self.lock.notify()
+                # self.lock.notify()
+                logging.debug("Notified message #{}: {}".format(messageNumber, self.reply))
 
             self.lock.release()
 
@@ -70,7 +83,7 @@ class GpioThread (threading.Thread):
                 self.isConnectedTick = 0
             self.project(block)
 
-        print("GpioThread stopping")
+        logging.info("GpioThread stopping")
 
         for i in range(LED_COUNT):
             self.strip.setPixelColor(i, 0x0)
@@ -132,14 +145,14 @@ class GpioThread (threading.Thread):
         return "TODO: Process commands"
 
     def update(self, afterModule):
-        print("Starting transition")
+        logging.info("Starting transition")
         transition = self.transitionFactory.newinstance(self.module, afterModule)
         block = transition.next()
         while block is not None:
             self.project(block)
             block = transition.next()
         self.module = afterModule
-        print("Transition finished")
+        logging.info("Transition finished")
 
     def getHelp(self, topic = []):
         if len(topic) > 0:
@@ -181,18 +194,26 @@ class GpioThread (threading.Thread):
     def ctrl(self, command):
         self.lock.acquire()
         self.command = command
+        self.commandId += 1
+        logging.debug("Setting command #{}: {}".format(self.commandId, command))
         self.reply = None
-        self.lock.wait()
+
+        boo = self.lock.wait(1)
+        if not boo:
+            logging.warning("Condition timed out. Command={}".format(self.command))
+
         reply = self.reply
         if reply == None:
-            print("M: Command \"{}\": no reply set!")
+            logging.warning("Command \"{}\": no reply set!")
+            reply = "ERR: no reply received"
+
         self.lock.release()
         return reply
 
     def quit(self):
         self.lock.acquire()
         self.exit = True
-        print("GpioThread signalled to stop")
+        logging.info("GpioThread signalled to stop")
         self.lock.release()
 
     def __adjust(self, num):

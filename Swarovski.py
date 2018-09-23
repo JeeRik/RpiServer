@@ -7,6 +7,26 @@ from Defs import *
 import Const
 
 class Clock:
+    NORTH = (Const.LED_CORNERS[3] + Const.LED_CORNERS[0] + Const.LED_COUNT) / 2
+    HOUR_MARKS_POS_LIST = map(
+        lambda x: Defs.adjustToLedRange(
+            int( math.floor(
+                ((Const.LED_CORNERS[3] + Const.LED_CORNERS[0] + Const.LED_COUNT) / 2)
+                - ( Const.LED_COUNT/12.0 * x) ))),
+            range(12))
+    MINUTE_MARKS_POS_LIST =  map(
+        lambda x: Defs.adjustToLedRange(
+            int( math.floor(
+                ((Const.LED_CORNERS[3] + Const.LED_CORNERS[0] + Const.LED_COUNT) / 2)
+                - ( Const.LED_COUNT/60.0 * x) ))),
+            range(60))
+    # @staticmethod
+    # def getMinuteMarksPosList():
+    #     diff = Const.LED_COUNT / 60.0
+    #     north = (Const.LED_CORNERS[3] + Const.LED_CORNERS[0] + Const.LED_COUNT) / 2
+    #     posList = map(lambda x: Defs.adjustToLedRange( int( math.floor( north - (diff*x) ))), range(60))
+    #     return posList
+
     @staticmethod
     def getHourNeedlePos():
         now = datetime.datetime.now()
@@ -34,18 +54,6 @@ class Clock:
         if pos < 0:
             pos += Const.LED_COUNT
         return pos
-    @staticmethod
-    def getHourMarksPosList():
-        diff = Const.LED_COUNT / 12.0
-        north = (Const.LED_CORNERS[3] + Const.LED_CORNERS[0] + Const.LED_COUNT) / 2
-        posList = map(lambda x: Defs.adjustToLedRange( int( math.floor( north - (diff*x) ))), range(12))
-        return posList
-    @staticmethod
-    def getMinuteMarksPosList():
-        diff = Const.LED_COUNT / 60.0
-        north = (Const.LED_CORNERS[3] + Const.LED_CORNERS[0] + Const.LED_COUNT) / 2
-        posList = map(lambda x: Defs.adjustToLedRange( int( math.floor( north - (diff*x) ))), range(60))
-        return posList
 
     name = "Clock. Analog-ish."
     key = "clock"
@@ -65,9 +73,9 @@ class Clock:
     def next(self):
         block = map(lambda x: [0,0x10,0x10][:], range(Const.LED_COUNT))
 
-        for pos in Clock.getMinuteMarksPosList():
+        for pos in Clock.MINUTE_MARKS_POS_LIST:
             block[pos] = [0x60, 0x60, 0]
-        for pos in Clock.getHourMarksPosList():
+        for pos in Clock.HOUR_MARKS_POS_LIST:
             block[pos] = [0x30, 0x60, 0x80]
         sec = Clock.getSecondNeedlePos()
         block[sec] = Colors.addColors(block[sec], [0x60, 0x40, 0])

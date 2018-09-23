@@ -132,13 +132,20 @@ class TheatreFilter:
 
         self.sections = []
         for section in sections:
+
             dir = -1 if section[2] < 0 else 1
-            end = section[1] if (section[1] - section[0]) * dir > 0 else section[1] + Const.LED_COUNT * dir # end of block, adjusted so that end is in the right direction from start
-            if end == section[0]: end -= Const.LED_COUNT
-            length = (end - section[0]) * dir
+            start = section[0]
+            end = section[1]
+            if end <= start: end += Const.LED_COUNT
+            length = (end - start)
+
+            if dir < 0:
+                tmp = start
+                start = end
+                end = tmp
 
             self.sections.append([
-                section[0], # start of block
+                start, # start of block
                 end,
                 section[2] if section[2] >= 0 else -section[2], # speed
                 section[3], # offcount
@@ -154,13 +161,10 @@ class TheatreFilter:
         counter = self.counter
 
         for section in self.sections:
-            # anchor = (self.counter * section[2] + section[5] + section[0]) % section[4]
-            # for i in range(section[0], section[1], 1):
-            #     if (i+anchor) % section[4] < section[3]:
-            #         block[i % Const.LED_COUNT] = [0,0,0]
             for i in range(section[7]+1):
+                pos = section[0] + i * section[6]
                 if ((i + counter*section[2]) % section[4]) < section[3]:
-                    block[(i*section[6] + section[0]) % Const.LED_COUNT] = [0,0,0]
+                    block[pos % Const.LED_COUNT] = [0,0,0]
 
         self.counter += 1
         return block
@@ -199,7 +203,7 @@ class ArrowFilter:
             absSpeed = -absSpeed
         sections = [
                 [door, window, TheatreFilter.speed, TheatreFilter.offCount, TheatreFilter.sampleLen],
-                [door, window, -TheatreFilter.speed, TheatreFilter.offCount, TheatreFilter.sampleLen]
+                [window, door, -TheatreFilter.speed, TheatreFilter.offCount, TheatreFilter.sampleLen]
         ]
         return TheatreFilter(module, sections)
 
@@ -227,13 +231,13 @@ class GazeFilter:
 
         sections = [
             [Const.LED_CORNERS[0], right],
-            [Const.LED_CORNERS[1], right],
+            [right, Const.LED_CORNERS[1]],
             [Const.LED_CORNERS[1], window],
-            [Const.LED_CORNERS[2], window],
+            [window, Const.LED_CORNERS[2]],
             [Const.LED_CORNERS[2], left],
-            [Const.LED_CORNERS[3], left],
+            [left, Const.LED_CORNERS[3]],
             [Const.LED_CORNERS[3], door],
-            [Const.LED_COUNT, door],
+            [door, Const.LED_COUNT],
         ]
 
         sections = map(lambda x, y: [x[0], x[1], TheatreFilter.speed * (-1) * ((-1)**y), TheatreFilter.offCount, TheatreFilter.sampleLen], sections, range(len(sections)))

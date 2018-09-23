@@ -1,4 +1,6 @@
 import socket
+import logging
+
 from GpioThread import GpioThread
 
 def readlines(sock, recv_buffer=4096, delim='\n'):
@@ -22,54 +24,60 @@ def connectionBody(c, caddr, thread):
         if len(line.split()) <= 0:
             continue
 
-        reply = thread.ctrl(line)
+        if line == "ping":
+            reply = "pong"
+        else:
+            reply = thread.ctrl(line)
+
         if not reply.endswith("\n"):
             reply += "\n"
         c.send(reply)
-        print("Command \"{}\", Reply \"{}\"".format(line, reply.strip()))
+        logging.info("Command \"{}\", Reply \"{}\"".format(line, reply.strip()))
 
 def main():
+    logging.basicConfig(filename='/home/maara/RpiServer/log.txt', level=logging.DEBUG)
+
     server = None;
     t = None
 
     try:
-        print("Setting up server")
+        logging.info("Setting up server")
         server = socket.socket()
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         port = 12345
         server.bind(("", port))
         server.listen(5)
 
-        print("Starting GPIO thread")
+        logging.info("Starting GpioThread")
         t = GpioThread()
         t.start()
 
-        print("Listening for connection at port {}".format(port))
+        logging.info("Listening for connection at port {}".format(port))
 
         while True:
             c, caddr = server.accept()
-            print("Connection from {}".format(caddr))
+            logging.info("Connection from {}".format(caddr))
 
             t.isConnected = True
             connectionBody(c, caddr, t)
             t.isConnected = False
 
-            print("EOF")
+            logging.info("Connection EOF")
             c.close()
 
     finally:
         if server is not None:
             server.close();
-            print("Server closed")
+            logging.info("Server closed")
         else:
-            print("Server not initialized")
+            logging.info("Server not initialized")
 
         if t is not None:
             t.quit()
             t.join(1)
-            print("Gpio thread terminated")
+            logging.info("GpioThread terminated")
         else:
-            print("GpioThread not started")
+            logging.info("GpioThread not started")
 
 if __name__ == '__main__':
     main()

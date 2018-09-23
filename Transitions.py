@@ -112,8 +112,6 @@ class WrapTransition:
         for x in map(lambda x: "+" if self.__isNewId(x, fromId, toId) else "-", range(918)):
             s += x
 
-        print(s)
-
         ret = map(
             lambda x, y, z: y if self.__isNewId(z, fromId, toId) else x,
             before,
